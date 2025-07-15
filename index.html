@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive History Timeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .container {
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .input-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .input-label {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: bold;
+        }
+
+        .country-input {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(5px);
+            min-width: 150px;
+        }
+
+        .country-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .year-input {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(5px);
+            width: 120px;
+        }
+
+        .go-button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);
+        }
+
+        .go-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(238, 90, 36, 0.4);
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .clock {
+            width: 120px;
+            height: 120px;
+            border: 8px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .clock-hand {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: 0 0;
+            background: white;
+            border-radius: 2px;
+        }
+
+        .hour-hand {
+            width: 4px;
+            height: 30px;
+            margin-top: -30px;
+            margin-left: -2px;
+            animation: spin-reverse 2s linear infinite;
+        }
+
+        .minute-hand {
+            width: 2px;
+            height: 40px;
+            margin-top: -40px;
+            margin-left: -1px;
+            animation: spin-reverse 0.5s linear infinite;
+        }
+
+        @keyframes spin-reverse {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(-360deg); }
+        }
+
+        .scroll-events-panel {
+            position: fixed;
+            top: 120px;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 15px 20px;
+            backdrop-filter: blur(20px);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            z-index: 1500;
+            opacity: 0;
+            transform: translateY(-100%);
+            transition: all 0.3s ease;
+            height: 140px;
+            overflow: hidden;
+        }
+
+        .scroll-events-panel.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .scroll-events-content {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            max-width: 1400px;
+            margin: 0 auto;
+            height: 100%;
+        }
+
+        .scroll-event-column {
+            flex: 1;
+            max-width: 400px;
+            height: 100%;
+        }
+
+        .scroll-event-item {
+            margin-bottom: 0;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            height: 100%;
+        }
+
+        .scroll-event-year {
+            color: #ff6b6b;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .scroll-event-title {
+            color: #54a0ff;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .scroll-event-description {
+            font-size: 0.9em;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        /* Additional styles continue... This is a truncated version for the commit */
+        /* See complete-timeline.html for full implementation */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="input-section">
+                <div class="input-group">
+                    <label class="input-label">First Country</label>
+                    <input type="text" class="country-input" placeholder="e.g., Brazil" id="country1">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Second Country</label>
+                    <input type="text" class="country-input" placeholder="e.g., Australia" id="country2">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Start Year</label>
+                    <input type="number" class="year-input" placeholder="e.g., 1500" id="startYear" value="1000">
+                </div>
+                <button class="go-button" id="goButton">🕰️ Go Back in Time</button>
+            </div>
+        </div>
+
+        <div class="scroll-events-panel" id="scrollEventsPanel">
+            <!-- Events in focus will appear here -->
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="clock">
+                <div class="clock-hand hour-hand"></div>
+                <div class="clock-hand minute-hand"></div>
+            </div>
+            <h2>Traveling through time...</h2>
+            <p>Gathering historical events...</p>
+        </div>
+
+        <div class="timeline-container" id="timelineContainer">
+            <div class="timelines" id="timelines">
+                <!-- Timelines will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simplified version for demo
+        // See complete source in repository for full implementation
+        alert('Welcome to Interactive History Timeline! This is a demo version. Check the repository for the complete implementation.');
+    </script>
+</body>
+</html>
