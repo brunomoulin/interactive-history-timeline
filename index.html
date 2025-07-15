@@ -1,262 +1,238 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive History Timeline</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+                    }
+                });
+            });
+        });
+
+        function generateTimelines(startYear) {
+            const timelinesContainer = document.getElementById('timelines');
+            const fixedHeader = document.getElementById('fixedCountriesHeader');
+            timelinesContainer.innerHTML = '';
+            fixedHeader.innerHTML = '';
+            allEvents = [];
+
+            currentCountries.forEach(country => {
+                const events = historicalEvents[country] || generateSampleEvents(country, startYear);
+                const filteredEvents = events.filter(event => event.year >= startYear);
+                
+                // Store all events for scroll handling
+                filteredEvents.forEach(event => {
+                    allEvents.push({...event, country: country});
+                });
+                
+                const timelineDiv = document.createElement('div');
+                timelineDiv.className = 'timeline';
+                
+                const flag = countryFlags[country] || '🌍';
+                const countryName = country.charAt(0).toUpperCase() + country.slice(1);
+                
+                // Create main timeline
+                timelineDiv.innerHTML = `
+                    <div class="timeline-header">
+                        <div class="country-flag">${flag}</div>
+                        <div class="country-name">${countryName}</div>
+                    </div>
+                    <div class="timeline-line"></div>
+                `;
+
+                // Create fixed header version that will transform
+                const fixedHeaderDiv = document.createElement('div');
+                fixedHeaderDiv.className = 'timeline';
+                fixedHeaderDiv.innerHTML = `
+                    <div class="timeline-header" data-country="${country}">
+                        <div class="country-flag">${flag}</div>
+                        <div class="country-name">${countryName}</div>
+                        <div class="event-year-display"></div>
+                        <div class="event-info">
+                            <div class="event-title"></div>
+                            <div class="event-description"></div>
+                        </div>
+                    </div>
+                `;
+
+                filteredEvents.forEach((event, index) => {
+                    const eventDiv = document.createElement('div');
+                    eventDiv.className = 'event';
+                    eventDiv.setAttribute('data-year', event.year);
+                    eventDiv.setAttribute('data-country', country);
+                    eventDiv.setAttribute('data-title', event.title);
+                    eventDiv.setAttribute('data-description', event.description);
+                    
+                    eventDiv.innerHTML = `
+                        <div class="event-year">${event.year}</div>
+                        <div class="event-icon ${event.type}" data-event="${index}" data-country="${country}">
+                            ${event.icon}
+                        </div>
+                    `;
+                    
+                    // Add click event listener properly
+                    const iconElement = eventDiv.querySelector('.event-icon');
+                    iconElement.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showPopup(event.title, event.description);
+                    });
+                    
+                    timelineDiv.appendChild(eventDiv);
+                });
+
+                timelinesContainer.appendChild(timelineDiv);
+                fixedHeader.appendChild(fixedHeaderDiv);
+            });
+
+            // Add scroll event listener for amplification
+            window.removeEventListener('scroll', handleScroll);
+            window.addEventListener('scroll', handleScroll);
+            
+            // Add click event listener to close popups when clicking outside
+            document.removeEventListener('click', handleOutsideClick);
+            document.addEventListener('click', handleOutsideClick);
         }
 
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: white;
-            overflow-x: hidden;
+        function handleOutsideClick(e) {
+            if (!e.target.closest('.event-icon') && !e.target.closest('.event-popup')) {
+                closePopup();
+            }
         }
 
-        .container {
-            min-height: 100vh;
-            position: relative;
+        function generateSampleEvents(country, startYear) {
+            // Fallback sample events for countries not in database
+            const countryCapitalized = country.charAt(0).toUpperCase() + country.slice(1);
+            return [
+                { year: startYear + 100, title: 'Early Settlement', description: `Early settlements established in ${countryCapitalized}, marking beginning of recorded history.`, icon: '🏘️', type: 'politics' },
+                { year: startYear + 200, title: 'Cultural Development', description: `Significant cultural developments emerge in ${countryCapitalized}, shaping national identity.`, icon: '🎭', type: 'culture' },
+                { year: startYear + 300, title: 'Major Conflict', description: `Important military conflict affects ${countryCapitalized}, changing political landscape.`, icon: '⚔️', type: 'war' },
+                { year: startYear + 400, title: 'Discovery Period', description: `Age of discovery brings new knowledge and trade to ${countryCapitalized}.`, icon: '🗺️', type: 'discovery' },
+                { year: startYear + 500, title: 'Modern Era', description: `${countryCapitalized} enters modern era with significant political and social changes.`, icon: '🏛️', type: 'politics' }
+            ];
         }
 
-        .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 20px;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
+        function handleScroll() {
+            const events = document.querySelectorAll('.event');
+            const windowCenter = window.innerHeight / 2;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            // Show/hide fixed countries header
+            const countriesHeader = document.getElementById('countriesHeader');
+            
+            if (scrollTop > 200) {
+                countriesHeader.classList.add('visible');
+            } else {
+                countriesHeader.classList.remove('visible');
+                countriesHeader.classList.remove('compact');
+                return; // Don't process events if header isn't visible
+            }
+            
+            // Find events in focus for each country
+            const eventsByCountry = {};
+            currentCountries.forEach(country => {
+                eventsByCountry[country] = [];
+            });
+            
+            events.forEach(event => {
+                const rect = event.getBoundingClientRect();
+                const eventCenter = rect.top + rect.height / 2;
+                const distance = Math.abs(windowCenter - eventCenter);
+
+                // Remove previous amplification
+                event.classList.remove('amplified');
+
+                // Check if event is in the center area of the screen
+                if (distance < 150 && rect.top < windowCenter + 100 && rect.bottom > windowCenter - 100) {
+                    const eventData = {
+                        element: event,
+                        distance: distance,
+                        year: event.getAttribute('data-year'),
+                        title: event.getAttribute('data-title'),
+                        description: event.getAttribute('data-description'),
+                        country: event.getAttribute('data-country')
+                    };
+                    
+                    if (eventsByCountry[eventData.country]) {
+                        eventsByCountry[eventData.country].push(eventData);
+                    }
+                }
+            });
+
+            // Get closest event for each country and amplify them
+            const finalEventsInFocus = [];
+            let hasEventsInFocus = false;
+            
+            currentCountries.forEach(country => {
+                if (eventsByCountry[country].length > 0) {
+                    // Sort by distance and get the closest
+                    eventsByCountry[country].sort((a, b) => a.distance - b.distance);
+                    const closestEvent = eventsByCountry[country][0];
+                    closestEvent.element.classList.add('amplified');
+                    finalEventsInFocus.push(closestEvent);
+                    hasEventsInFocus = true;
+                }
+            });
+            
+            // Update country headers with event information
+            if (hasEventsInFocus) {
+                countriesHeader.classList.add('compact');
+                
+                // Update each country header with its event data
+                currentCountries.forEach(country => {
+                    const eventForCountry = finalEventsInFocus.find(e => e.country === country);
+                    const headerElement = countriesHeader.querySelector(`[data-country="${country}"]`);
+                    
+                    if (headerElement) {
+                        if (eventForCountry) {
+                            // Update the header with event information
+                            headerElement.querySelector('.event-year-display').textContent = eventForCountry.year;
+                            headerElement.querySelector('.event-title').textContent = eventForCountry.title;
+                            headerElement.querySelector('.event-description').textContent = eventForCountry.description;
+                        } else {
+                            // Clear the event information if no event in focus for this country
+                            headerElement.querySelector('.event-year-display').textContent = '';
+                            headerElement.querySelector('.event-title').textContent = '';
+                            headerElement.querySelector('.event-description').textContent = '';
+                        }
+                    }
+                });
+                
+            } else {
+                // No events in focus - return to normal state
+                countriesHeader.classList.remove('compact');
+                
+                // Clear all event information
+                currentCountries.forEach(country => {
+                    const headerElement = countriesHeader.querySelector(`[data-country="${country}"]`);
+                    if (headerElement) {
+                        headerElement.querySelector('.event-year-display').textContent = '';
+                        headerElement.querySelector('.event-title').textContent = '';
+                        headerElement.querySelector('.event-description').textContent = '';
+                    }
+                });
+            }
         }
 
-        .input-section {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
+        function showPopup(title, description) {
+            try {
+                document.getElementById('popupTitle').textContent = title;
+                document.getElementById('popupContent').textContent = description;
+                document.getElementById('overlay').style.display = 'block';
+                document.getElementById('eventPopup').style.display = 'block';
+            } catch (error) {
+                console.error('Error showing popup:', error);
+                alert(`${title}: ${description}`);
+            }
         }
 
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
+        function closePopup() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('eventPopup').style.display = 'none';
         }
 
-        .input-label {
-            font-size: 0.9em;
-            color: rgba(255, 255, 255, 0.8);
-            font-weight: bold;
-        }
+        // Close popup when clicking overlay
+        document.getElementById('overlay').addEventListener('click', closePopup);
 
-        .country-input {
-            padding: 12px 16px;
-            border: none;
-            border-radius: 25px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            backdrop-filter: blur(5px);
-            min-width: 150px;
-        }
-
-        .country-input::placeholder {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .year-input {
-            padding: 12px 16px;
-            border: none;
-            border-radius: 25px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            backdrop-filter: blur(5px);
-            width: 120px;
-        }
-
-        .go-button {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 25px;
-            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);
-        }
-
-        .go-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(238, 90, 36, 0.4);
-        }
-
-        .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2000;
-            text-align: center;
-        }
-
-        .clock {
-            width: 120px;
-            height: 120px;
-            border: 8px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            margin: 0 auto 20px;
-            position: relative;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .clock-hand {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform-origin: 0 0;
-            background: white;
-            border-radius: 2px;
-        }
-
-        .hour-hand {
-            width: 4px;
-            height: 30px;
-            margin-top: -30px;
-            margin-left: -2px;
-            animation: spin-reverse 2s linear infinite;
-        }
-
-        .minute-hand {
-            width: 2px;
-            height: 40px;
-            margin-top: -40px;
-            margin-left: -1px;
-            animation: spin-reverse 0.5s linear infinite;
-        }
-
-        @keyframes spin-reverse {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(-360deg); }
-        }
-
-        .scroll-events-panel {
-            position: fixed;
-            top: 120px;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.95);
-            color: white;
-            padding: 15px 20px;
-            backdrop-filter: blur(20px);
-            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
-            z-index: 1500;
-            opacity: 0;
-            transform: translateY(-100%);
-            transition: all 0.3s ease;
-            height: 140px;
-            overflow: hidden;
-        }
-
-        .scroll-events-panel.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .scroll-events-content {
-            display: flex;
-            gap: 40px;
-            justify-content: center;
-            max-width: 1400px;
-            margin: 0 auto;
-            height: 100%;
-        }
-
-        .scroll-event-column {
-            flex: 1;
-            max-width: 400px;
-            height: 100%;
-        }
-
-        .scroll-event-item {
-            margin-bottom: 0;
-            padding: 15px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            height: 100%;
-        }
-
-        .scroll-event-year {
-            color: #ff6b6b;
-            font-weight: bold;
-            font-size: 1.1em;
-        }
-
-        .scroll-event-title {
-            color: #54a0ff;
-            font-weight: bold;
-            margin: 5px 0;
-        }
-
-        .scroll-event-description {
-            font-size: 0.9em;
-            opacity: 0.9;
-            line-height: 1.4;
-        }
-
-        /* Additional styles continue... This is a truncated version for the commit */
-        /* See complete-timeline.html for full implementation */
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="input-section">
-                <div class="input-group">
-                    <label class="input-label">First Country</label>
-                    <input type="text" class="country-input" placeholder="e.g., Brazil" id="country1">
-                </div>
-                <div class="input-group">
-                    <label class="input-label">Second Country</label>
-                    <input type="text" class="country-input" placeholder="e.g., Australia" id="country2">
-                </div>
-                <div class="input-group">
-                    <label class="input-label">Start Year</label>
-                    <input type="number" class="year-input" placeholder="e.g., 1500" id="startYear" value="1000">
-                </div>
-                <button class="go-button" id="goButton">🕰️ Go Back in Time</button>
-            </div>
-        </div>
-
-        <div class="scroll-events-panel" id="scrollEventsPanel">
-            <!-- Events in focus will appear here -->
-        </div>
-
-        <div class="loading" id="loading" style="display: none;">
-            <div class="clock">
-                <div class="clock-hand hour-hand"></div>
-                <div class="clock-hand minute-hand"></div>
-            </div>
-            <h2>Traveling through time...</h2>
-            <p>Gathering historical events...</p>
-        </div>
-
-        <div class="timeline-container" id="timelineContainer">
-            <div class="timelines" id="timelines">
-                <!-- Timelines will be generated here -->
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Simplified version for demo
-        // See complete source in repository for full implementation
-        alert('Welcome to Interactive History Timeline! This is a demo version. Check the repository for the complete implementation.');
+        // Handle escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePopup();
+            }
+        });
     </script>
 </body>
 </html>
